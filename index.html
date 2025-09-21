@@ -37,7 +37,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         body {
-            font-family: 'Press Start 2P', cursive;
+            font-family: 'Press+Start+2P', cursive;
             background-color: #1a1a1a;
             color: #ffffff;
             display: flex;
@@ -143,6 +143,25 @@
             padding: 2rem;
             width: 100%;
         }
+        .score-card {
+            background-color: #333333;
+            border: 3px solid #ff00ff;
+            border-radius: 0.75rem;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+            padding: 1.5rem;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        .score-card h3 {
+            font-size: 1.5rem;
+            color: #ff00ff;
+            margin-bottom: 0.5rem;
+        }
+        .score-card p {
+            font-size: 1rem;
+            color: #ffffff;
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-green-400">
@@ -174,6 +193,13 @@
                 <button id="submitScoreBtn" onclick="submitScore()" class="btn">Submit Score</button>
                 <button onclick="window.location.reload()" class="btn">Play Again</button>
             </div>
+
+            <!-- Score Card -->
+            <div id="scoreCard" class="score-card hidden">
+                <h3>Your Score Card</h3>
+                <p>Final Score: <span id="finalScore">0</span></p>
+                <p>User ID: <span id="finalUserId"></span></p>
+            </div>
         </div>
 
         <!-- Leaderboard section is always visible -->
@@ -204,6 +230,7 @@
                         userId = user.uid;
                         authReady = true;
                         console.log("User authenticated. User ID:", userId);
+                        // Attach the single, real-time leaderboard listener here
                         fetchLeaderboard();
                     } else {
                         try {
@@ -234,6 +261,10 @@
         const gameScreen = document.getElementById('gameScreen');
         const startButton = document.getElementById('startButton');
         const submitScoreBtn = document.getElementById('submitScoreBtn');
+        const scoreCard = document.getElementById('scoreCard');
+        const finalScoreSpan = document.getElementById('finalScore');
+        const finalUserIdSpan = document.getElementById('finalUserId');
+
 
         let gridSize;
         let tileCount;
@@ -424,6 +455,7 @@
             levelDisplay.textContent = 'Level: 1';
             setStatus('');
             mintSection.classList.add('hidden');
+            scoreCard.classList.add('hidden'); // Hide the score card on new game
             if (gameOverButtons) {
                 gameOverButtons.classList.add('hidden');
                 // The submitScoreBtn should only show up when auth is ready
@@ -446,17 +478,19 @@
             canvas.removeEventListener('touchstart', touchStart);
             canvas.removeEventListener('touchmove', touchMove);
             
-            // Wait for authentication to be ready before showing the submit button
-            if (!authReady) {
-                const checkAuthLoop = setInterval(() => {
-                    if (authReady) {
-                        submitScoreBtn.classList.remove('hidden');
-                        clearInterval(checkAuthLoop);
-                    }
-                }, 500);
-            } else {
+            // Show the score card
+            displayScoreCard();
+
+            // Show the submit score button if authentication is ready.
+            if (authReady) {
                 submitScoreBtn.classList.remove('hidden');
             }
+        }
+
+        function displayScoreCard() {
+            finalScoreSpan.textContent = score;
+            finalUserIdSpan.textContent = userId || 'Not available';
+            scoreCard.classList.remove('hidden');
         }
         
         async function submitScore() {
@@ -486,7 +520,6 @@
                         setStatus("Score is not a new high score.", '#00ffff');
                     }
                 });
-                fetchLeaderboard();
             } catch (error) {
                 setStatus("Failed to submit score.", '#ff0000');
                 console.error("Error submitting score:", error);
