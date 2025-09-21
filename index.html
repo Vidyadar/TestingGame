@@ -184,7 +184,7 @@
             <div id="statusMessage" class="game-status"></div>
             <div id="mintSection" class="w-full mt-4 hidden">
                 <div class="placeholder flex flex-col items-center gap-2">
-                    <p class="text-sm">Congratulations! You reached Level 5. The NFT is ready to mint.</p>
+                    <p id="mintingLevelMessage" class="text-sm">Congratulations! You reached Level 5. The NFT is ready to mint.</p>
                     <p class="placeholder-text">This is a placeholder. The actual minting process requires a backend server and a Farcaster Frame API call. The fees ($2 max, 50% to developer) would be handled by a smart contract on the blockchain.</p>
                     <button onclick="handleMint()" class="btn">Mint NFT</button>
                 </div>
@@ -255,6 +255,7 @@
         const levelDisplay = document.getElementById('level');
         const statusMessage = document.getElementById('statusMessage');
         const mintSection = document.getElementById('mintSection');
+        const mintingLevelMessage = document.getElementById('mintingLevelMessage');
         const gameOverButtons = document.getElementById('gameOverButtons');
         const leaderboardList = document.getElementById('leaderboardList');
         const startScreen = document.getElementById('startScreen');
@@ -268,9 +269,8 @@
 
         let gridSize;
         let tileCount;
-        const requiredScoreToMint = 50;
-        const requiredLevelToMint = 5;
-
+        const mintLevels = new Set([5, 10, 15, 20]);
+        let notifiedLevels = new Set();
         let snake = [{ x: 10, y: 10 }];
         let food = {};
         let dx = 0;
@@ -341,7 +341,6 @@
                 scoreDisplay.textContent = 'Score: ' + score;
                 createFood();
                 checkLevelUp();
-                checkMintEligibility();
             } else {
                 snake.pop();
             }
@@ -368,13 +367,16 @@
                 gameInterval = setInterval(update, gameSpeed);
                 setStatus('Level Up!', '#00ffff');
                 setTimeout(() => setStatus(''), 1000);
+                checkMintEligibility();
             }
         }
 
         function checkMintEligibility() {
-            if (score >= requiredScoreToMint && level >= requiredLevelToMint) {
+            if (mintLevels.has(level) && !notifiedLevels.has(level)) {
                 mintSection.classList.remove('hidden');
+                mintingLevelMessage.textContent = `Congratulations! You reached Level ${level}. The NFT is ready to mint.`;
                 setStatus('You are ready to mint!', '#00ff00');
+                notifiedLevels.add(level);
             }
         }
 
@@ -451,6 +453,7 @@
             score = 0;
             level = 1;
             gameSpeed = 150;
+            notifiedLevels = new Set();
             scoreDisplay.textContent = 'Score: 0';
             levelDisplay.textContent = 'Level: 1';
             setStatus('');
@@ -509,6 +512,7 @@
                     const userScoreDoc = await transaction.get(userScoreDocRef);
                     const currentHighScore = userScoreDoc.exists() ? userScoreDoc.data().score : 0;
                     
+                    console.log(`Current high score: ${currentHighScore}, New score: ${score}`);
                     if (score > currentHighScore) {
                         transaction.set(userScoreDocRef, {
                             score: score,
@@ -516,8 +520,10 @@
                             timestamp: firebase.serverTimestamp(),
                         });
                         setStatus("New high score submitted!", '#00ff00');
+                        console.log("New high score successfully submitted.");
                     } else {
                         setStatus("Score is not a new high score.", '#00ffff');
+                        console.log("Score is not a new high score, not submitted.");
                     }
                 });
             } catch (error) {
@@ -536,6 +542,7 @@
                 const q = firebase.query(leaderboardCollection, firebase.orderBy("score", "desc"), firebase.limit(10));
                 
                 const unsubscribe = firebase.onSnapshot(q, (snapshot) => {
+                    console.log("Leaderboard update received.");
                     leaderboardList.innerHTML = '';
                     let rank = 1;
                     snapshot.forEach((doc) => {
