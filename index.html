@@ -424,8 +424,11 @@
             levelDisplay.textContent = 'Level: 1';
             setStatus('');
             mintSection.classList.add('hidden');
-            gameOverButtons.classList.add('hidden');
-            if (submitScoreBtn) submitScoreBtn.classList.remove('hidden');
+            if (gameOverButtons) {
+                gameOverButtons.classList.add('hidden');
+                // The submitScoreBtn should only show up when auth is ready
+                submitScoreBtn.classList.add('hidden');
+            }
             createFood();
             if (gameInterval) clearInterval(gameInterval);
             gameInterval = setInterval(update, gameSpeed);
@@ -442,6 +445,18 @@
             window.removeEventListener('keydown', handleInput);
             canvas.removeEventListener('touchstart', touchStart);
             canvas.removeEventListener('touchmove', touchMove);
+            
+            // Wait for authentication to be ready before showing the submit button
+            if (!authReady) {
+                const checkAuthLoop = setInterval(() => {
+                    if (authReady) {
+                        submitScoreBtn.classList.remove('hidden');
+                        clearInterval(checkAuthLoop);
+                    }
+                }, 500);
+            } else {
+                submitScoreBtn.classList.remove('hidden');
+            }
         }
         
         async function submitScore() {
