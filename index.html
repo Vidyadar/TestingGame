@@ -528,6 +528,11 @@
             resizeCanvas(); // Set initial canvas size
             window.addEventListener('resize', resizeCanvas); // Resize on window resize
             startButton.addEventListener('click', startGame);
+            
+            // Farcaster Frame specific ready call to remove the splash screen
+            if (typeof sdk !== 'undefined' && typeof sdk.actions.ready === 'function') {
+                sdk.actions.ready();
+            }
         };
     </script>
 </body>
