@@ -3,7 +3,7 @@ import json
 from flask import Flask, request, jsonify, render_template_string, send_file
 from PIL import Image, ImageDraw, ImageFont
 import random
-from farcaster import Farcaster
+from farcaster import Farcaster # Correct
 
 # Initialize Flask app
 app = Flask(__name__)
