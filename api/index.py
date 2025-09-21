@@ -1,11 +1,14 @@
 import os
 import json
+import logging
 from flask import Flask, request, jsonify, render_template_string, send_file
 from PIL import Image, ImageDraw, ImageFont
 import random
-from farcaster import Farcaster
+from farcaster import validate_message
 
-# Initialize Flask app
+# Set up logging for better debugging on Vercel
+logging.basicConfig(level=logging.INFO)
+
 app = Flask(__name__)
 
 # In-memory game states, keyed by FID. For a production app, use a database or Redis.
@@ -15,8 +18,6 @@ game_states = {}
 GRID_SIZE = 15
 CELL_SIZE = 32
 IMAGE_SIZE = GRID_SIZE * CELL_SIZE
-
-# Path to the font file, adjusted for Vercel's file system
 FONT_PATH = os.path.join(os.path.dirname(__file__), "PressStart2P-Regular.ttf")
 
 # --- Image Generation ---
@@ -25,6 +26,7 @@ def draw_game_state(state):
     try:
         font = ImageFont.truetype(FONT_PATH, 16)
     except IOError:
+        logging.warning("Font file not found. Using default font.")
         font = ImageFont.load_default()
 
     img = Image.new('RGB', (IMAGE_SIZE, IMAGE_SIZE), color=(25, 25, 25))
@@ -93,17 +95,15 @@ def move_snake(state, direction):
     snake = state['snake']
     head = snake[0]
 
-    # Check for opposite direction moves
     if (direction == 'up' and state['direction'] == 'down') or \
        (direction == 'down' and state['direction'] == 'up') or \
        (direction == 'left' and state['direction'] == 'right') or \
        (direction == 'right' and state['direction'] == 'left'):
-        direction = state['direction'] # Don't allow reversing direction
+        direction = state['direction']
 
     state['direction'] = direction
     new_head = list(head)
     
-    # Calculate new head position
     if direction == 'up': new_head[1] -= 1
     elif direction == 'down': new_head[1] += 1
     elif direction == 'left': new_head[0] -= 1
@@ -111,7 +111,6 @@ def move_snake(state, direction):
     
     new_head = tuple(new_head)
     
-    # Check for collisions with walls or self
     if not (0 <= new_head[0] < GRID_SIZE and 0 <= new_head[1] < GRID_SIZE) or new_head in snake:
         state['game_over'] = True
         return
@@ -131,6 +130,12 @@ async def home():
         initial_state = create_initial_state()
         image = draw_game_state(initial_state)
         image_path = "static/initial_frame.png"
+        
+        # Ensure the 'static' directory exists before saving the image
+        static_dir = os.path.join(app.root_path, "static")
+        if not os.path.exists(static_dir):
+            os.makedirs(static_dir)
+            
         image.save(os.path.join(app.root_path, image_path))
 
         return render_template_string("""
@@ -147,66 +152,16 @@ async def home():
 
     else: # POST request (user interaction)
         try:
-            # Validate the Farcaster request
-            fc = Farcaster()
-            frame_data = await fc.validate_message(request.get_data())
+            body = request.get_data()
+            logging.info(f"Received request body: {body}")
+            
+            # Validate the Farcaster request using the dedicated function
+            frame_data = validate_message(body)
             user_fid = frame_data.fid
             
-            # Get the button index clicked
-            action = request.get_json()['untrustedData']['buttonIndex']
+            action = frame_data.button_index
             
-            # Get or create game state
-            if user_fid not in game_states or game_states[user_fid]['game_over']:
+            if action == 1 and user_fid not in game_states:
                 game_states[user_fid] = create_initial_state()
             
-            state = game_states[user_fid]
-            
-            # Process move
-            direction_map = {1: 'up', 2: 'down', 3: 'left', 4: 'right'}
-            if action in direction_map:
-                move_snake(state, direction_map[action])
-
-            # Render the updated image
-            image = draw_game_state(state)
-            image_filename = f"game_frame_{user_fid}.png"
-            image_path = os.path.join(app.root_path, "static", image_filename)
-            
-            # Ensure the static directory exists
-            if not os.path.exists(os.path.join(app.root_path, "static")):
-                os.makedirs(os.path.join(app.root_path, "static"))
-            
-            image.save(image_path)
-            
-            # Determine buttons for the next frame
-            if state['game_over']:
-                buttons_html = """
-                <meta property="fc:frame:button:1" content="Play Again" />
-                """
-            else:
-                buttons_html = """
-                <meta property="fc:frame:button:1" content="⬆️" />
-                <meta property="fc:frame:button:2" content="⬇️" />
-                <meta property="fc:frame:button:3" content="⬅️" />
-                <meta property="fc:frame:button:4" content="➡️" />
-                """
-
-            return render_template_string(f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta property="fc:frame" content="vNext" />
-                <meta property="fc:frame:image" content="/static/{image_filename}" />
-                <meta property="fc:frame:post_url" content="/" />
-                {buttons_html}
-            </head>
-            </html>
-            """)
-
-        except Exception as e:
-            # Vercel requires a specific response for errors
-            return jsonify({"error": str(e)}), 500
-
-@app.route("/static/<path:filename>")
-def serve_static(filename):
-    """Serve static files (images) from the 'static' directory."""
-    return send_file(os.path.join(app.root_path, "static", filename))
+            state = game_states.get(user_fid
