@@ -209,7 +209,7 @@
         // Firebase Globals
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? initialAuthToken : undefined;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
 
         let db, auth, userId;
         let authReady = false;
@@ -230,8 +230,10 @@
                     } else {
                         try {
                             if (initialAuthToken) {
+                                console.log("Signing in with custom token...");
                                 await firebase.signInWithCustomToken(auth, initialAuthToken);
                             } else {
+                                console.log("Signing in anonymously...");
                                 await firebase.signInAnonymously(auth);
                             }
                         } catch (error) {
