@@ -556,6 +556,14 @@
                         leaderboardList.appendChild(li);
                         rank++;
                     });
+                }, (error) => {
+                    console.error("Error fetching leaderboard:", error);
+                    if (error.code === 'failed-precondition' && error.message.includes('The query requires an index')) {
+                        setStatus("Leaderboard query failed. Please create a Firestore index for 'score' in descending order.", '#ff0000');
+                        console.error("Action Required: A Firestore index is missing. Check the Firebase console for the link to create it.");
+                    } else {
+                        setStatus("Error fetching leaderboard.", '#ff0000');
+                    }
                 });
                 console.log("Leaderboard listener attached.");
             } catch (error) {
